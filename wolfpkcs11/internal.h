@@ -355,6 +355,7 @@ int WP11_ConstantCompare(const byte* a, const byte* b, int length);
 int WP11_Object_New(WP11_Session* session, CK_KEY_TYPE type,
                     WP11_Object** object);
 void WP11_Object_Free(WP11_Object* object);
+int WP11_Object_Copy(WP11_Object *src, WP11_Object *dest);
 
 CK_OBJECT_HANDLE WP11_Object_GetHandle(WP11_Object* object);
 CK_KEY_TYPE WP11_Object_GetType(WP11_Object* object);
