@@ -142,8 +142,6 @@
 #define OBJ_HANDLE(on, i)              (((on) << 28) | (i))
 /* Determine whether object is onToken from object handle. */
 #define OBJ_HANDLE_ON_TOKEN(h)         ((int)((h) >> 28))
-/* Determine object id from object handle. */
-#define OBJ_HANDLE_OBJ_ID(h)           ((h) & 0xfffffff)
 
 #ifdef SINGLE_THREADED
 /* Disable locking. */
@@ -6185,6 +6183,22 @@ int WP11_Session_SetCtsParams(WP11_Session* session, unsigned char* iv,
 #endif /* HAVE_AESCTS */
 #endif /* !NO_AES */
 
+static int getNextHandle(WP11_Session *session, int onToken)
+{
+    int handle;
+    byte nonce;
+    if (onToken) {
+        handle = OBJ_HANDLE(onToken, session->slot->nextObjId++);
+    } else {
+        handle = OBJ_HANDLE(onToken, session->slot->nextObjId++);
+    }
+    if (WP11_Slot_GenerateRandom(session->slot, &nonce, sizeof(nonce)) == 0) {
+        /* Inject some randomness in the object handle */
+        handle |= nonce << 12;
+    }
+    return handle;
+}
+
 /**
  * Add object to the session or token.
  *
@@ -6219,7 +6233,7 @@ int WP11_Session_AddObject(WP11_Session* session, int onToken,
             /* Get next item in list after this object has been added. */
             next = token->object;
             /* Determine handle value */
-            object->handle = OBJ_HANDLE(onToken, session->slot->nextObjId++);
+            object->handle = getNextHandle(session, onToken);
             object->next = next;
             token->object = object;
         }
@@ -6237,7 +6251,7 @@ int WP11_Session_AddObject(WP11_Session* session, int onToken,
             /* Get next item in list after this object has been added. */
             next = session->object;
             /* Determine handle value */
-            object->handle = OBJ_HANDLE(onToken, session->slot->nextObjId++);
+            object->handle = getNextHandle(session, onToken);
             object->next = next;
             session->object = object;
             object->session = session;
@@ -11724,11 +11738,11 @@ int WP11_GetOperationState(WP11_Session* session, unsigned char* stateData,
     }
     *stateDataLen += mechSize;
 
-    if (bufferAvailable < *stateDataLen)
-        return CKR_BUFFER_TOO_SMALL;
-
     if (stateData == NULL)
         return CKR_OK;
+
+    if (bufferAvailable < *stateDataLen)
+        return CKR_BUFFER_TOO_SMALL;
 
     XMEMCPY(stateData, &session->mechanism, sizeof(session->mechanism));
     stateData += sizeof(session->mechanism);
